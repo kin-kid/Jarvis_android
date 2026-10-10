@@ -1,106 +1,159 @@
-# J.A.R.V.I.S. Android Assistant for Samsung Galaxy A16
+name: Build JARVIS APK for Samsung A16
 
-A native Android voice assistant built in Kotlin with Tony Stark's futuristic JARVIS interface, designed specifically for the **Samsung Galaxy A16** (Android 14 / One UI 6).
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
----
+jobs:
+  build:
+    runs-on: ubuntu-latest
 
-## Key Features
+    steps:
+    - name: Checkout Repository
+      uses: actions/checkout@v4
 
-1. **Futuristic Stark HUD Interface**:
-   - Deep obsidian background (`#030712`) with neon holographic cyan (`#00F0FF`) and arc reactor pulse animations.
-   - Interactive acoustic sensor trigger (Microphone FAB) with real-time soundwave reactivity.
+    - name: Set up Java 17
+      uses: actions/setup-java@v4
+      with:
+        java-version: '17'
+        distribution: 'temurin'
 
-2. **Offline Hardware Voice Commands**:
-   - **Open Installed Apps**: Instant launch of Camera, YouTube, WhatsApp, Chrome, Phone, Gallery, Settings, Calculator, Spotify, Maps, and any installed app on your Samsung A16.
-   - **System Navigation**: "Go back", "Go home", "Recent apps", "Show notifications".
-   - **Safe Screen Lock**: "Lock screen" / "Lock phone" using official Android 9+ `GLOBAL_ACTION_LOCK_SCREEN`.
+    - name: Auto-Organize Flat Files into Android Structure
+      run: |
+        echo "Organizing files into Android directory structure..."
+        mkdir -p app/src/main/java/com/stark/jarvis/service
+        mkdir -p app/src/main/java/com/stark/jarvis/util
+        mkdir -p app/src/main/java/com/stark/jarvis/voice
+        mkdir -p app/src/main/java/com/stark/jarvis/ai
+        mkdir -p app/src/main/res/layout
+        mkdir -p app/src/main/res/drawable
+        mkdir -p app/src/main/res/values
+        mkdir -p app/src/main/res/xml
+        mkdir -p app/src/main/res/mipmap-anydpi-v26
 
-3. **Text-To-Speech (TTS)**:
-   - Customized voice synthesis tuned to Paul Bettany's JARVIS cadence (British baritone pitch 0.92, rate 1.02).
+        # Move Kotlin sources if in root
+        [ -f MainActivity.kt ] && mv -f MainActivity.kt app/src/main/java/com/stark/jarvis/
+        [ -f JarvisAccessibilityService.kt ] && mv -f JarvisAccessibilityService.kt app/src/main/java/com/stark/jarvis/service/
+        [ -f AppLauncherHelper.kt ] && mv -f AppLauncherHelper.kt app/src/main/java/com/stark/jarvis/util/
+        [ -f JarvisVoiceEngine.kt ] && mv -f JarvisVoiceEngine.kt app/src/main/java/com/stark/jarvis/voice/
+        [ -f GeminiBrainService.kt ] && mv -f GeminiBrainService.kt app/src/main/java/com/stark/jarvis/ai/
 
-4. **Online Intelligence (Gemini AI)**:
-   - Switch between **Local Matrix (100% offline)** and **Gemini 3.8 Flash Neural Net** for answering complex questions, calculations, and general conversation.
+        # Move XML layouts and resources if in root
+        [ -f AndroidManifest.xml ] && mv -f AndroidManifest.xml app/src/main/
+        [ -f activity_main.xml ] && mv -f activity_main.xml app/src/main/res/layout/
+        [ -f bg_arc_glow.xml ] && mv -f bg_arc_glow.xml app/src/main/res/drawable/
+        [ -f bg_hologram_card.xml ] && mv -f bg_hologram_card.xml app/src/main/res/drawable/
+        [ -f ic_mic.xml ] && mv -f ic_mic.xml app/src/main/res/drawable/
+        [ -f colors.xml ] && mv -f colors.xml app/src/main/res/values/
+        [ -f strings.xml ] && mv -f strings.xml app/src/main/res/values/
+        [ -f themes.xml ] && mv -f themes.xml app/src/main/res/values/
+        [ -f accessibility_service_config.xml ] && mv -f accessibility_service_config.xml app/src/main/res/xml/
 
-5. **Lock Screen Security & Samsung Knox Compliance**:
-   - **Crucial Rule**: The app NEVER attempts to bypass PIN, pattern, or fingerprint lock.
-   - It respects Android's Knox hardware security module (TrustZone).
-   - The lock command safely puts the phone to sleep and engages the lock screen, protecting your device.
+        # Create launcher icons so AAPT never complains
+        cat << 'EOF' > app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml
+        <?xml version="1.0" encoding="utf-8"?>
+        <adaptive-icon xmlns:android="http://schemas.android.com/apk/res/android">
+            <background android:drawable="@color/jarvis_background" />
+            <foreground android:drawable="@drawable/ic_mic" />
+        </adaptive-icon>
+        EOF
+        cp app/src/main/res/mipmap-anydpi-v26/ic_launcher.xml app/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml
 
----
+        # Ensure root build.gradle.kts
+        cat << 'EOF' > build.gradle.kts
+        plugins {
+            id("com.android.application") version "8.2.2" apply false
+            id("org.jetbrains.kotlin.android") version "1.9.22" apply false
+        }
+        EOF
 
-## How to Build the APK on Your Phone (Without a Computer)
+        # Ensure settings.gradle.kts
+        cat << 'EOF' > settings.gradle.kts
+        pluginManagement {
+            repositories {
+                google()
+                mavenCentral()
+                gradlePluginPortal()
+            }
+        }
+        dependencyResolutionManagement {
+            repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+            repositories {
+                google()
+                mavenCentral()
+            }
+        }
+        rootProject.name = "JARVIS"
+        include(":app")
+        EOF
 
-Since you are developing directly on your Samsung Galaxy A16 without a PC, here are the **3 best methods** to build and install your APK:
+        # Ensure gradle.properties
+        cat << 'EOF' > gradle.properties
+        org.gradle.jvmargs=-Xmx2048m -Dfile.encoding=UTF-8
+        android.useAndroidX=true
+        android.enableJetifier=false
+        kotlin.code.style=official
+        android.nonTransitiveRClass=true
+        EOF
 
-### Method 1: GitHub Cloud Build (Recommended — 100% Free & Automatic)
-*This is the easiest method for beginners. GitHub will compile the APK in the cloud for you in 90 seconds.*
+        # Ensure app/build.gradle.kts
+        cat << 'EOF' > app/build.gradle.kts
+        plugins {
+            id("com.android.application")
+            id("org.jetbrains.kotlin.android")
+        }
 
-1. Open Chrome or Samsung Internet on your Galaxy A16 and visit **[github.com](https://github.com)**.
-2. Sign in or create a free account.
-3. Tap **+** > **New repository** (Name it `jarvis-android`).
-4. Tap **Add file** > **Upload files** and upload the contents of this project (or import the ZIP).
-5. GitHub will automatically detect `.github/workflows/build-apk.yml`.
-6. Tap the **Actions** tab on your phone:
-   - Watch the build turn green (takes ~90 seconds).
-   - Under **Artifacts**, tap `JARVIS-Samsung-A16-Debug-APK`.
-7. Download the `.zip` or `.apk` directly to your phone.
-8. Open the Samsung **My Files** app > **Downloads**, tap `app-debug.apk`, and tap **Install**!
+        android {
+            namespace = "com.stark.jarvis"
+            compileSdk = 34
 
----
+            defaultConfig {
+                applicationId = "com.stark.jarvis"
+                minSdk = 26
+                targetSdk = 34
+                versionCode = 1
+                versionName = "1.0.0"
+            }
 
-### Method 2: Termux On-Device Build (100% Offline on Phone)
-*You can compile Android code directly on your Galaxy A16's octa-core processor using Termux.*
+            compileOptions {
+                sourceCompatibility = JavaVersion.VERSION_17
+                targetCompatibility = JavaVersion.VERSION_17
+            }
+            kotlinOptions {
+                jvmTarget = "17"
+            }
+            buildFeatures {
+                viewBinding = true
+            }
+            lint {
+                abortOnError = false
+                checkReleaseBuilds = false
+            }
+        }
 
-1. Install **Termux** from F-Droid (do not use Google Play Termux as it is outdated).
-2. Open Termux on your Samsung A16 and run:
-   ```bash
-   pkg update -y
-   pkg install openjdk-17 git gradle aapt apksigner -y
-   termux-setup-storage
-   ```
-3. Navigate to your project folder:
-   ```bash
-   cd ~/storage/shared/Download/JARVIS
-   gradle assembleDebug
-   ```
-4. The generated APK will be at:
-   `app/build/outputs/apk/debug/app-debug.apk`
-5. Tap it in your file manager to install!
+        dependencies {
+            implementation("androidx.core:core-ktx:1.12.0")
+            implementation("androidx.appcompat:appcompat:1.6.1")
+            implementation("com.google.android.material:material:1.11.0")
+            implementation("androidx.constraintlayout:constraintlayout:2.1.4")
+            implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.7.0")
+            implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+            implementation("com.squareup.okhttp3:okhttp:4.12.0")
+            implementation("com.google.code.gson:gson:2.10.1")
+        }
+        EOF
 
----
+    - name: Setup Gradle 8.4
+      uses: gradle/actions/setup-gradle@v3
+      with:
+        gradle-version: '8.4'
 
-### Method 3: AIDE (Android IDE on Phone)
-1. Download **AIDE - IDE for Android Java/Kotlin** from the app store.
-2. Tap **Open Project** > browse to your downloaded JARVIS folder.
-3. Tap the **Play / Run** button at the top right. AIDE compiles and prompts you to install the APK directly!
+    - name: Build Debug APK
+      run: gradle assembleDebug --stacktrace
 
----
-
-## Activating Permissions on Samsung Galaxy A16 (One UI 6)
-
-1. **Microphone Permission**:
-   - When you open the app, tap **Allow** when prompted for Audio Recording.
-
-2. **Enable Navigation & Lock Accessibility Service**:
-   - Open Samsung **Settings**.
-   - Scroll down to **Accessibility** (`접근성` / Accessibility).
-   - Tap **Installed apps** (or **Downloaded apps**).
-   - Tap **JARVIS Navigation Controller**.
-   - Toggle the switch to **ON** and tap **Allow**.
-   - *This grants JARVIS the ability to navigate back, home, and lock your screen.*
-
----
-
-## Voice Commands Cheat Sheet
-
-| Command | Action | Works Offline? |
-| :--- | :--- | :---: |
-| *"Jarvis, open camera"* | Launches Samsung Camera | ✅ Yes |
-| *"Open WhatsApp"* | Launches WhatsApp messenger | ✅ Yes |
-| *"Open YouTube"* | Launches YouTube app | ✅ Yes |
-| *"Go back"* | Navigates back one screen | ✅ Yes |
-| *"Take me home"* | Returns to Android home screen | ✅ Yes |
-| *"Show recent apps"* | Opens app switcher | ✅ Yes |
-| *"Lock the phone"* | Locks screen (Knox protected) | ✅ Yes |
-| *"What is quantum entanglement?"* | Answers with Gemini AI | 🌐 Online |
-| *"Status report"* | Reports system telemetry | ✅ Yes |
+    - name: Upload JARVIS APK
+      uses: actions/upload-artifact@v4
+      with:
+        name: JARVIS-Samsung-A16-Debug-APK
+        path: app/build/outputs/apk/debug/app-debug.apk

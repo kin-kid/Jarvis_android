@@ -1,0 +1,244 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:background="@color/jarvis_background"
+    android:padding="20dp"
+    tools:context=".MainActivity">
+
+    <!-- Top Status Bar / Header -->
+    <LinearLayout
+        android:id="@+id/headerLayout"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:gravity="center_vertical"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <LinearLayout
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:orientation="vertical">
+
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="J.A.R.V.I.S. // STARK-OS"
+                android:textColor="@color/jarvis_cyan"
+                android:textSize="18sp"
+                android:textStyle="bold"
+                android:letterSpacing="0.15" />
+
+            <TextView
+                android:id="@+id/tvDeviceTag"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="SAMSUNG GALAXY A16 // ONE UI 6"
+                android:textColor="@color/jarvis_text_muted"
+                android:textSize="10sp"
+                android:letterSpacing="0.1" />
+        </LinearLayout>
+
+        <!-- Neural Link Mode Switch -->
+        <com.google.android.material.switchmaterial.SwitchMaterial
+            android:id="@+id/switchOnlineMode"
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:text="GEMINI AI"
+            android:textColor="@color/jarvis_cyan"
+            android:textSize="12sp"
+            android:checked="true" />
+    </LinearLayout>
+
+    <!-- System Status Banner -->
+    <TextView
+        android:id="@+id/tvStatusBanner"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginTop="16dp"
+        android:background="@drawable/bg_hologram_card"
+        android:padding="10dp"
+        android:text="@string/jarvis_status_standby"
+        android:textAlignment="center"
+        android:textColor="@color/jarvis_cyan"
+        android:textSize="11sp"
+        android:letterSpacing="0.1"
+        app:layout_constraintTop_toBottomOf="@id/headerLayout" />
+
+    <!-- Central Arc Reactor HUD -->
+    <FrameLayout
+        android:id="@+id/arcReactorContainer"
+        android:layout_width="260dp"
+        android:layout_height="260dp"
+        app:layout_constraintBottom_toTopOf="@id/cardTelemetry"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/tvStatusBanner">
+
+        <!-- Outer Glow Layer -->
+        <View
+            android:id="@+id/viewArcGlow"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:background="@drawable/bg_arc_glow" />
+
+        <!-- Rotating Ring Indicator -->
+        <ProgressBar
+            android:id="@+id/progressArcRing"
+            style="?android:attr/progressBarStyle"
+            android:layout_width="220dp"
+            android:layout_height="220dp"
+            android:layout_gravity="center"
+            android:indeterminate="true"
+            android:indeterminateTint="@color/jarvis_cyan" />
+
+        <!-- Center Glowing Mic Button -->
+        <com.google.android.material.floatingactionbutton.FloatingActionButton
+            android:id="@+id/fabMicrophone"
+            android:layout_width="84dp"
+            android:layout_height="84dp"
+            android:layout_gravity="center"
+            android:contentDescription="Voice Command Trigger"
+            android:src="@drawable/ic_mic"
+            app:backgroundTint="@color/jarvis_surface"
+            app:borderWidth="2dp"
+            app:elevation="8dp"
+            app:maxImageSize="40dp"
+            app:tint="@color/jarvis_cyan" />
+    </FrameLayout>
+
+    <!-- Subtitle Prompt under Arc Reactor -->
+    <TextView
+        android:id="@+id/tvMicHint"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="TAP REACTOR TO COMMAND"
+        android:textColor="@color/jarvis_text_muted"
+        android:textSize="11sp"
+        android:letterSpacing="0.15"
+        app:layout_constraintTop_toBottomOf="@id/arcReactorContainer"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent" />
+
+    <!-- Real-Time Dialogue / Telemetry Card -->
+    <androidx.cardview.widget.CardView
+        android:id="@+id/cardTelemetry"
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_marginTop="16dp"
+        android:layout_marginBottom="16dp"
+        app:cardBackgroundColor="#0D1117"
+        app:cardCornerRadius="14dp"
+        app:cardElevation="0dp"
+        app:layout_constraintBottom_toTopOf="@id/quickCommandsScroll"
+        app:layout_constraintTop_toBottomOf="@id/tvMicHint">
+
+        <ScrollView
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:padding="16dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical">
+
+                <TextView
+                    android:id="@+id/tvUserQuery"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="User: &quot;Standby protocol.&quot;"
+                    android:textColor="@color/jarvis_text_muted"
+                    android:textSize="13sp" />
+
+                <View
+                    android:layout_width="match_parent"
+                    android:layout_height="1dp"
+                    android:layout_marginVertical="8dp"
+                    android:background="#1E293B" />
+
+                <TextView
+                    android:id="@+id/tvJarvisResponse"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="@string/jarvis_initial_greeting"
+                    android:textColor="@color/jarvis_cyan"
+                    android:textSize="15sp"
+                    android:lineSpacingExtra="4dp" />
+            </LinearLayout>
+        </ScrollView>
+    </androidx.cardview.widget.CardView>
+
+    <!-- Quick Offline Command Chips (Bottom) -->
+    <HorizontalScrollView
+        android:id="@+id/quickCommandsScroll"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:scrollbars="none"
+        app:layout_constraintBottom_toBottomOf="parent">
+
+        <LinearLayout
+            android:layout_width="wrap_content"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+
+            <Button
+                android:id="@+id/btnQuickBack"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:text="◀ Go Back"
+                android:textColor="@color/jarvis_cyan"
+                android:textSize="12sp"
+                app:strokeColor="@color/jarvis_cyan_glow" />
+
+            <Button
+                android:id="@+id/btnQuickHome"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:text="⌂ Go Home"
+                android:textColor="@color/jarvis_cyan"
+                android:textSize="12sp"
+                app:strokeColor="@color/jarvis_cyan_glow" />
+
+            <Button
+                android:id="@+id/btnQuickCamera"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:text="📷 Open Camera"
+                android:textColor="@color/jarvis_cyan"
+                android:textSize="12sp"
+                app:strokeColor="@color/jarvis_cyan_glow" />
+
+            <Button
+                android:id="@+id/btnQuickYouTube"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginEnd="8dp"
+                android:text="▶ YouTube"
+                android:textColor="@color/jarvis_cyan"
+                android:textSize="12sp"
+                app:strokeColor="@color/jarvis_cyan_glow" />
+
+            <Button
+                android:id="@+id/btnQuickLock"
+                style="@style/Widget.MaterialComponents.Button.OutlinedButton"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="🔒 Lock Screen"
+                android:textColor="@color/jarvis_cyan"
+                android:textSize="12sp"
+                app:strokeColor="@color/jarvis_cyan_glow" />
+        </LinearLayout>
+    </HorizontalScrollView>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

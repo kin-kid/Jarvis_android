@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Futuristic Dark & Blue JARVIS Palette -->
+    <color name="jarvis_background">#030712</color>
+    <color name="jarvis_surface">#0B132B</color>
+    <color name="jarvis_surface_glass">#1A102A45</color>
+    <color name="jarvis_cyan">#00F0FF</color>
+    <color name="jarvis_cyan_glow">#4000F0FF</color>
+    <color name="jarvis_blue_glow">#0077FE</color>
+    <color name="jarvis_blue_dark">#021B35</color>
+    <color name="jarvis_white">#F8FAFC</color>
+    <color name="jarvis_text_muted">#64748B</color>
+    <color name="jarvis_active_green">#10B981</color>
+    <color name="jarvis_warning_amber">#F59E0B</color>
+    <color name="jarvis_accent_red">#EF4444</color>
+</resources>

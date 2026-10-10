@@ -1,0 +1,12 @@
+<resources>
+    <string name="app_name">JARVIS</string>
+    <string name="jarvis_status_standby">SYSTEM STATUS: ALL PROTOCOLS OPERATIONAL</string>
+    <string name="jarvis_status_listening">ACOUSTIC SENSORS ACTIVE // LISTENING...</string>
+    <string name="jarvis_status_processing">PROCESSING NEURAL TELEMETRY...</string>
+    <string name="jarvis_status_speaking">SYNTHESIZING VOCAL RESPONSE...</string>
+    <string name="jarvis_initial_greeting">Good day, sir. JARVIS online. How may I be of assistance?</string>
+    
+    <!-- Accessibility Service -->
+    <string name="accessibility_service_label">JARVIS Navigation Controller</string>
+    <string name="accessibility_service_description">Enables JARVIS to perform hands-free system navigation (Go Back, Home, Recent Apps, and Lock Screen) using official Android accessibility protocols on Samsung Galaxy A16.</string>
+</resources>

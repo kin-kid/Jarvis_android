@@ -2,22 +2,14 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:tools="http://schemas.android.com/tools">
 
-    <!-- Audio recording for JARVIS voice commands -->
     <uses-permission android:name="android.permission.RECORD_AUDIO" />
-    
-    <!-- Internet for online Gemini conversational intelligence -->
     <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    
-    <!-- Haptic feedback for JARVIS interactions -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.VIBRATE" />
 
-    <!-- Query packages to find installed apps (Samsung Galaxy A16 / Android 14) -->
-    <uses-permission android:name="android.permission.QUERY_ALL_PACKAGES"
-        tools:ignore="QueryAllPackagesPermission" />
-
     <queries>
-        <!-- Popular apps to open offline -->
         <package android:name="com.google.android.youtube" />
         <package android:name="com.whatsapp" />
         <package android:name="com.android.chrome" />
@@ -42,7 +34,6 @@
         android:theme="@style/Theme.Jarvis"
         tools:targetApi="34">
 
-        <!-- Main Holographic JARVIS HUD Activity -->
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -54,12 +45,10 @@
             </intent-filter>
         </activity>
 
-        <!-- Offline Navigation & Safe Lock Screen Accessibility Service -->
-        <!-- Enables "Go Back", "Go Home", "Recent Apps", and "Lock Screen" -->
         <service
             android:name=".service.JarvisAccessibilityService"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE"
-            android:exported="true">
+            android:exported="true"
+            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
             <intent-filter>
                 <action android:name="android.accessibilityservice.AccessibilityService" />
             </intent-filter>
@@ -68,6 +57,9 @@
                 android:resource="@xml/accessibility_service_config" />
         </service>
 
+        <service
+            android:name=".service.JarvisVoiceService"
+            android:exported="false"
+            android:foregroundServiceType="microphone" />
     </application>
-
 </manifest>

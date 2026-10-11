@@ -19,6 +19,7 @@ import com.stark.jarvis.databinding.ActivityMainBinding
 import com.stark.jarvis.service.JarvisAccessibilityService
 import com.stark.jarvis.util.AppLauncherHelper
 import com.stark.jarvis.util.ContactCallHelper
+import com.stark.jarvis.util.DeviceControlHelper
 import com.stark.jarvis.util.WhatsAppHelper
 import com.stark.jarvis.voice.JarvisVoiceEngine
 import kotlinx.coroutines.launch
@@ -30,6 +31,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var appLauncher: AppLauncherHelper
     private lateinit var contactCallHelper: ContactCallHelper
     private lateinit var whatsappHelper: WhatsAppHelper
+    private lateinit var deviceControlHelper: DeviceControlHelper
     private lateinit var geminiService: GeminiBrainService
 
     private var pulseAnimator: ObjectAnimator? = null
@@ -66,6 +68,7 @@ class MainActivity : AppCompatActivity() {
         appLauncher = AppLauncherHelper(this)
         contactCallHelper = ContactCallHelper(this)
         whatsappHelper = WhatsAppHelper(this)
+        deviceControlHelper = DeviceControlHelper(this)
         geminiService = GeminiBrainService()
 
         setupVoiceEngine()
@@ -223,6 +226,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (lower.contains("wifi") || lower.contains("bluetooth") || lower.contains("flashlight") || lower.contains("torch") || lower.contains("volume") || lower.contains("brightness") || lower.contains("airplane mode") || lower.contains("flight mode")) {
+            handleDeviceControl(lower)
+            return
+        }
+
         if (lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ")) {
             val target = lower.removePrefix("open ").removePrefix("launch ").removePrefix("start ").trim()
             executeOpenApp(target)
@@ -232,7 +240,7 @@ class MainActivity : AppCompatActivity() {
         if (isOnlineMode) {
             queryOnlineGemini(command)
         } else {
-            respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, call, or who am I?")
+            respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, call, WhatsApp, Wi‑Fi, or who am I?")
         }
     }
 
@@ -307,6 +315,56 @@ class MainActivity : AppCompatActivity() {
 
         val opened = whatsappHelper.openWhatsApp()
         respond(if (opened) "Opening WhatsApp, sir." else "I could not open WhatsApp on this device.")
+    }
+
+    private fun handleDeviceControl(command: String) {
+        val lower = command.lowercase().trim()
+
+        when {
+            lower.contains("wifi on") || lower.contains("turn on wifi") -> {
+                val ok = deviceControlHelper.toggleWifi(true)
+                respond(if (ok) "Turning Wi‑Fi on, sir." else "I could not toggle Wi‑Fi on this device.")
+            }
+            lower.contains("wifi off") || lower.contains("turn off wifi") -> {
+                val ok = deviceControlHelper.toggleWifi(false)
+                respond(if (ok) "Turning Wi‑Fi off, sir." else "I could not toggle Wi‑Fi off on this device.")
+            }
+            lower.contains("bluetooth on") || lower.contains("turn on bluetooth") -> {
+                val ok = deviceControlHelper.toggleBluetooth(true)
+                respond(if (ok) "Turning Bluetooth on, sir." else "I could not enable Bluetooth on this device.")
+            }
+            lower.contains("bluetooth off") || lower.contains("turn off bluetooth") -> {
+                val ok = deviceControlHelper.toggleBluetooth(false)
+                respond(if (ok) "Turning Bluetooth off, sir." else "I could not disable Bluetooth on this device.")
+            }
+            lower.contains("flashlight on") || lower.contains("torch on") -> {
+                val ok = deviceControlHelper.toggleFlashlight(true)
+                respond(if (ok) "Turning on the flashlight, sir." else "I could not enable the flashlight on this device.")
+            }
+            lower.contains("flashlight off") || lower.contains("torch off") -> {
+                val ok = deviceControlHelper.toggleFlashlight(false)
+                respond(if (ok) "Turning off the flashlight, sir." else "I could not disable the flashlight on this device.")
+            }
+            lower.contains("volume up") || lower.contains("increase volume") -> {
+                val ok = deviceControlHelper.setVolume(5)
+                respond(if (ok) "Increasing volume, sir." else "I could not change the volume.")
+            }
+            lower.contains("volume down") || lower.contains("decrease volume") -> {
+                val ok = deviceControlHelper.setVolume(-5)
+                respond(if (ok) "Lowering volume, sir." else "I could not change the volume.")
+            }
+            lower.contains("brightness") -> {
+                val opened = deviceControlHelper.openBrightnessSettings()
+                respond(if (opened) "Opening brightness settings, sir." else "I could not open brightness settings.")
+            }
+            lower.contains("airplane mode") || lower.contains("flight mode") -> {
+                val opened = deviceControlHelper.openAirplaneModeSettings()
+                respond(if (opened) "Opening airplane mode settings, sir." else "I could not open airplane mode settings.")
+            }
+            else -> {
+                respond("I can control Wi‑Fi, Bluetooth, flashlight, volume, brightness, and airplane mode.")
+            }
+        }
     }
 
     private fun executeGoBack() {

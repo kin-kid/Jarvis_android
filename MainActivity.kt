@@ -155,7 +155,9 @@ class MainActivity : AppCompatActivity() {
     /**
      * Dispatcher: Checks offline hardware commands first; if none match, delegates to Gemini AI.
      */
-    private fun handleIncomingCommand(command: String)
+    private fun handleIncomingCommand(command: String) {
+        val lower = command.lowercase().trim()
+
         // Personal identity command — works without online AI
         if (
             lower.contains("who am i") ||
@@ -164,8 +166,8 @@ class MainActivity : AppCompatActivity() {
         ) {
             respond("You are David, sir. I am JARVIS, your personal assistant.")
             return
-        } {
-        val lower = command.lowercase().trim()
+        }
+
         binding.tvUserQuery.text = "User: \"$command\""
         binding.tvStatusBanner.text = getString(R.string.jarvis_status_processing)
 

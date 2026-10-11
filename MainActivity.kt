@@ -5,7 +5,6 @@ import android.animation.ObjectAnimator
 import android.animation.PropertyValuesHolder
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Bundle
 import android.provider.Settings
 import android.view.animation.AccelerateDecelerateInterpolator
@@ -30,18 +29,17 @@ class MainActivity : AppCompatActivity() {
     private lateinit var geminiService: GeminiBrainService
 
     private var pulseAnimator: ObjectAnimator? = null
-    private var isOnlineMode = true
+    private var isOnlineMode = false
 
-    // Permission launcher for RECORD_AUDIO
     private val requestAudioPermissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            voiceEngine.speak("Acoustic sensors calibrated, sir. Microphone authorized.")
+    ) { granted ->
+        if (granted) {
             binding.tvStatusBanner.text = "ACOUSTIC SENSORS AUTHORIZED // STANDBY"
+            voiceEngine.speak("Microphone authorized, sir.")
         } else {
             binding.tvStatusBanner.text = "MICROPHONE PERMISSION DENIED"
-            Toast.makeText(this, "Microphone access is required for voice commands.", Toast.LENGTH_LONG).show()
+            Toast.makeText(this, "Microphone permission is required for voice commands.", Toast.LENGTH_LONG).show()
         }
     }
 
@@ -50,16 +48,14 @@ class MainActivity : AppCompatActivity() {
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
-        // Initialize helper components
         appLauncher = AppLauncherHelper(this)
         geminiService = GeminiBrainService()
 
         setupVoiceEngine()
+        setupUI()
         setupArcReactorAnimation()
-        setupUIListeners()
         checkPermissionsAndServices()
 
-        // Welcome greeting on startup
         binding.root.postDelayed({
             voiceEngine.speak(getString(R.string.jarvis_initial_greeting))
         }, 800)
@@ -71,9 +67,9 @@ class MainActivity : AppCompatActivity() {
             onSpeechResult = { recognizedText ->
                 handleIncomingCommand(recognizedText)
             },
-            onListeningStateChanged = { isListening ->
+            onListeningStateChanged = { listening ->
                 runOnUiThread {
-                    if (isListening) {
+                    if (listening) {
                         binding.tvStatusBanner.text = getString(R.string.jarvis_status_listening)
                         binding.tvMicHint.text = "ACOUSTIC SENSOR ENGAGED..."
                         startIntensePulsing()
@@ -84,22 +80,43 @@ class MainActivity : AppCompatActivity() {
                 }
             },
             onSoundLevelChanged = { rmsdB ->
-                // Adjust glowing ring scale based on user voice volume
                 val scale = 1.0f + (rmsdB.coerceIn(0f, 10f) / 40f)
                 binding.fabMicrophone.scaleX = scale
                 binding.fabMicrophone.scaleY = scale
             },
-            onErrorOccurred = { errorMessage ->
+            onErrorOccurred = { error ->
                 runOnUiThread {
-                    binding.tvStatusBanner.text = "NOTICE: $errorMessage"
+                    binding.tvStatusBanner.text = "NOTICE: $error"
                     resetPulsing()
                 }
             }
         )
     }
 
+    private fun setupUI() {
+        binding.fabMicrophone.setOnClickListener {
+            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+                voiceEngine.startListening()
+            } else {
+                requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        }
+
+        binding.switchOnlineMode.setOnCheckedChangeListener { _, checked ->
+            isOnlineMode = checked
+            val modeText = if (checked) "GEMINI AI LINK ACTIVE" else "OFFLINE LOCAL MATRIX ONLY"
+            binding.tvStatusBanner.text = modeText
+            voiceEngine.speak(if (checked) "Online neural link engaged." else "Operating in offline mode.")
+        }
+
+        binding.btnQuickBack.setOnClickListener { executeGoBack() }
+        binding.btnQuickHome.setOnClickListener { executeGoHome() }
+        binding.btnQuickCamera.setOnClickListener { executeOpenApp("camera") }
+        binding.btnQuickYouTube.setOnClickListener { executeOpenApp("youtube") }
+        binding.btnQuickLock.setOnClickListener { executeLockScreen() }
+    }
+
     private fun setupArcReactorAnimation() {
-        // Continuous subtle futuristic breathing pulse
         pulseAnimator = ObjectAnimator.ofPropertyValuesHolder(
             binding.viewArcGlow,
             PropertyValuesHolder.ofFloat("scaleX", 0.95f, 1.15f),
@@ -107,8 +124,8 @@ class MainActivity : AppCompatActivity() {
             PropertyValuesHolder.ofFloat("alpha", 0.4f, 0.9f)
         ).apply {
             duration = 1800
-            repeatCount = ObjectAnimator.INFINITE
             repeatMode = ObjectAnimator.REVERSE
+            repeatCount = ObjectAnimator.INFINITE
             interpolator = AccelerateDecelerateInterpolator()
             start()
         }
@@ -124,61 +141,43 @@ class MainActivity : AppCompatActivity() {
         binding.fabMicrophone.scaleY = 1.0f
     }
 
-    private fun setupUIListeners() {
-        // Microphone FAB click
-        binding.fabMicrophone.setOnClickListener {
-            if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-                == PackageManager.PERMISSION_GRANTED
-            ) {
-                voiceEngine.startListening()
-            } else {
-                requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
-            }
+    private fun handleIncomingCommand(command: String) {
+        val raw = command.trim()
+        val lower = raw.lowercase()
+
+        if (lower.contains("hey jarvis") || lower.contains("jarvis")) {
+            val stripped = lower.replace("hey jarvis", "").replace("jarvis", "").trim()
+            val filtered = if (stripped.isEmpty()) "hello" else stripped
+            handleCommand(filtered)
+            return
         }
 
-        // Online / Offline Switch
-        binding.switchOnlineMode.setOnCheckedChangeListener { _, isChecked ->
-            isOnlineMode = isChecked
-            val modeLabel = if (isChecked) "GEMINI AI LINK ACTIVE" else "OFFLINE LOCAL MATRIX ONLY"
-            binding.tvStatusBanner.text = modeLabel
-            voiceEngine.speak(if (isChecked) "Online neural link engaged." else "Operating strictly on local hardware.")
-        }
-
-        // Quick Command Buttons for manual offline testing
-        binding.btnQuickBack.setOnClickListener { executeGoBack() }
-        binding.btnQuickHome.setOnClickListener { executeGoHome() }
-        binding.btnQuickCamera.setOnClickListener { executeOpenApp("camera") }
-        binding.btnQuickYouTube.setOnClickListener { executeOpenApp("youtube") }
-        binding.btnQuickLock.setOnClickListener { executeLockScreen() }
+        handleCommand(lower)
     }
 
-    /**
-     * Dispatcher: Checks offline hardware commands first; if none match, delegates to Gemini AI.
-     */
-    private fun handleIncomingCommand(command: String) {
-        val lower = command.lowercase().trim()
+    private fun handleCommand(command: String) {
+        val lower = command.trim().lowercase()
 
-        // Personal identity command — works without online AI
-        if (
-            lower.contains("who am i") ||
-            lower.contains("what is my name") ||
-            lower.contains("what's my name")
-        ) {
+        if (lower.contains("who am i") || lower.contains("what is my name") || lower.contains("what's my name")) {
             respond("You are David, sir. I am JARVIS, your personal assistant.")
+            return
+        }
+
+        if (lower.contains("help") || lower.contains("what can you do")) {
+            respond("I can open apps, navigate home, go back, and answer questions online when the neural link is active.")
             return
         }
 
         binding.tvUserQuery.text = "User: \"$command\""
         binding.tvStatusBanner.text = getString(R.string.jarvis_status_processing)
 
-        // 1. Navigation offline commands
-        if (lower.contains("go back") || lower == "back" || lower.contains("previous screen")) {
-            executeGoBack()
+        if (lower.contains("go home") || lower == "home" || lower.contains("take me home")) {
+            executeGoHome()
             return
         }
 
-        if (lower.contains("go home") || lower == "home screen" || lower == "take me home") {
-            executeGoHome()
+        if (lower.contains("go back") || lower == "back" || lower.contains("previous screen")) {
+            executeGoBack()
             return
         }
 
@@ -192,29 +191,21 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
-        // 2. Lock screen offline command (Samsung Knox Secure Lock)
-        if (lower.contains("lock screen") || lower.contains("lock phone") || lower == "lock the device" || lower == "lock") {
+        if (lower.contains("lock screen") || lower.contains("lock phone") || lower.contains("lock the device")) {
             executeLockScreen()
             return
         }
 
-        // 3. Open apps offline command ("open youtube", "launch whatsapp", "start camera")
         if (lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ")) {
-            val appTarget = lower
-                .removePrefix("open ")
-                .removePrefix("launch ")
-                .removePrefix("start ")
-                .trim()
-            executeOpenApp(appTarget)
+            val target = lower.removePrefix("open ").removePrefix("launch ").removePrefix("start ").trim()
+            executeOpenApp(target)
             return
         }
 
-        // 4. Online AI Intelligent Conversation (Gemini)
         if (isOnlineMode) {
             queryOnlineGemini(command)
         } else {
-            val offlineReply = "Sir, that command is not recognized in offline mode. Say 'Open [app]', 'Go back', 'Go home', or 'Lock screen'."
-            respond(offlineReply)
+            respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, or who am I?")
         }
     }
 
@@ -252,7 +243,7 @@ class MainActivity : AppCompatActivity() {
         val service = JarvisAccessibilityService.instance
         if (service != null) {
             service.performOpenNotifications()
-            respond("Accessing notification telemetry.")
+            respond("Opening notifications, sir.")
         } else {
             promptEnableAccessibility("Notifications")
         }
@@ -309,9 +300,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun checkPermissionsAndServices() {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO)
-            != PackageManager.PERMISSION_GRANTED
-        ) {
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.RECORD_AUDIO) != PackageManager.PERMISSION_GRANTED) {
             requestAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
     }

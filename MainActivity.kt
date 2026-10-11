@@ -18,6 +18,9 @@ import com.stark.jarvis.ai.GeminiBrainService
 import com.stark.jarvis.databinding.ActivityMainBinding
 import com.stark.jarvis.service.JarvisAccessibilityService
 import com.stark.jarvis.util.AppLauncherHelper
+import com.stark.jarvis.util.ContactCallHelper
+import com.stark.jarvis.util.DeviceControlHelper
+import com.stark.jarvis.util.WhatsAppHelper
 import com.stark.jarvis.voice.JarvisVoiceEngine
 import kotlinx.coroutines.launch
 
@@ -26,6 +29,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var voiceEngine: JarvisVoiceEngine
     private lateinit var appLauncher: AppLauncherHelper
+    private lateinit var contactCallHelper: ContactCallHelper
+    private lateinit var whatsappHelper: WhatsAppHelper
+    private lateinit var deviceControlHelper: DeviceControlHelper
     private lateinit var geminiService: GeminiBrainService
 
     private var pulseAnimator: ObjectAnimator? = null
@@ -43,12 +49,26 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val requestContactsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            binding.tvStatusBanner.text = "CONTACT ACCESS AUTHORIZED"
+        } else {
+            binding.tvStatusBanner.text = "CONTACT ACCESS DENIED"
+            Toast.makeText(this, "Contact access is required to find a contact to call.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         appLauncher = AppLauncherHelper(this)
+        contactCallHelper = ContactCallHelper(this)
+        whatsappHelper = WhatsAppHelper(this)
+        deviceControlHelper = DeviceControlHelper(this)
         geminiService = GeminiBrainService()
 
         setupVoiceEngine()
@@ -196,6 +216,21 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (lower.contains("call ") || lower.contains("dial ") || lower.contains("phone ")) {
+            handleContactCall(lower)
+            return
+        }
+
+        if (lower.contains("whatsapp") || lower.contains("whats app")) {
+            handleWhatsApp(lower)
+            return
+        }
+
+        if (lower.contains("wifi") || lower.contains("bluetooth") || lower.contains("flashlight") || lower.contains("torch") || lower.contains("volume") || lower.contains("brightness") || lower.contains("airplane mode") || lower.contains("flight mode")) {
+            handleDeviceControl(lower)
+            return
+        }
+
         if (lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ")) {
             val target = lower.removePrefix("open ").removePrefix("launch ").removePrefix("start ").trim()
             executeOpenApp(target)
@@ -205,7 +240,130 @@ class MainActivity : AppCompatActivity() {
         if (isOnlineMode) {
             queryOnlineGemini(command)
         } else {
-            respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, or who am I?")
+            respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, call, WhatsApp, Wi‑Fi, or who am I?")
+        }
+    }
+
+    private fun handleContactCall(command: String) {
+        val lower = command.lowercase().trim()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            requestContactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            respond("I need contact access to search for the person you want to call.")
+            return
+        }
+
+        val targetName = when {
+            lower.contains("call ") -> lower.removePrefix("call ").trim()
+            lower.contains("dial ") -> lower.removePrefix("dial ").trim()
+            lower.contains("phone ") -> lower.removePrefix("phone ").trim()
+            else -> lower
+        }
+
+        val aliasName = contactCallHelper.resolveContactAlias(targetName)
+        val matches = contactCallHelper.findContactsByName(aliasName)
+
+        when {
+            matches.isEmpty() -> {
+                respond("I could not find a contact named $aliasName. Please say the full name clearly or open your contacts.")
+            }
+            matches.size == 1 -> {
+                val contact = matches.first()
+                val dialIntent = contactCallHelper.buildDialIntent(contact.phoneNumber)
+                startActivity(dialIntent)
+                respond("Calling ${contact.displayName}, sir. Please confirm in the dialer before placing the call.")
+            }
+            else -> {
+                val options = matches.take(5).joinToString(", ") { it.displayName }
+                respond("I found several contacts: $options. Please tell me which one you want to call.")
+            }
+        }
+    }
+
+    private fun handleWhatsApp(command: String) {
+        val lower = command.lowercase().trim()
+
+        if (lower.contains("open whatsapp") || lower.contains("open whats app")) {
+            val opened = whatsappHelper.openWhatsApp()
+            respond(if (opened) "Opening WhatsApp, sir." else "I could not open WhatsApp on this device.")
+            return
+        }
+
+        if (lower.contains("send") || lower.contains("message") || lower.contains("text")) {
+            val target = lower
+                .replace("whatsapp", "")
+                .replace("whats app", "")
+                .replace("send", "")
+                .replace("message", "")
+                .replace("text", "")
+                .trim()
+
+            if (target.isEmpty()) {
+                val opened = whatsappHelper.openWhatsApp()
+                respond(if (opened) "Opening WhatsApp so you can send a message." else "I could not open WhatsApp.")
+                return
+            }
+
+            val matches = contactCallHelper.findContactsByName(target)
+            if (matches.isNotEmpty()) {
+                val contact = matches.first()
+                val result = whatsappHelper.openWhatsAppChat(contact.phoneNumber)
+                respond(if (result) "Opening WhatsApp chat with ${contact.displayName}, sir." else "I could not open a WhatsApp chat for ${contact.displayName}.")
+                return
+            }
+        }
+
+        val opened = whatsappHelper.openWhatsApp()
+        respond(if (opened) "Opening WhatsApp, sir." else "I could not open WhatsApp on this device.")
+    }
+
+    private fun handleDeviceControl(command: String) {
+        val lower = command.lowercase().trim()
+
+        when {
+            lower.contains("wifi on") || lower.contains("turn on wifi") -> {
+                val ok = deviceControlHelper.toggleWifi(true)
+                respond(if (ok) "Turning Wi‑Fi on, sir." else "I could not toggle Wi‑Fi on this device.")
+            }
+            lower.contains("wifi off") || lower.contains("turn off wifi") -> {
+                val ok = deviceControlHelper.toggleWifi(false)
+                respond(if (ok) "Turning Wi‑Fi off, sir." else "I could not toggle Wi‑Fi off on this device.")
+            }
+            lower.contains("bluetooth on") || lower.contains("turn on bluetooth") -> {
+                val ok = deviceControlHelper.toggleBluetooth(true)
+                respond(if (ok) "Turning Bluetooth on, sir." else "I could not enable Bluetooth on this device.")
+            }
+            lower.contains("bluetooth off") || lower.contains("turn off bluetooth") -> {
+                val ok = deviceControlHelper.toggleBluetooth(false)
+                respond(if (ok) "Turning Bluetooth off, sir." else "I could not disable Bluetooth on this device.")
+            }
+            lower.contains("flashlight on") || lower.contains("torch on") -> {
+                val ok = deviceControlHelper.toggleFlashlight(true)
+                respond(if (ok) "Turning on the flashlight, sir." else "I could not enable the flashlight on this device.")
+            }
+            lower.contains("flashlight off") || lower.contains("torch off") -> {
+                val ok = deviceControlHelper.toggleFlashlight(false)
+                respond(if (ok) "Turning off the flashlight, sir." else "I could not disable the flashlight on this device.")
+            }
+            lower.contains("volume up") || lower.contains("increase volume") -> {
+                val ok = deviceControlHelper.setVolume(5)
+                respond(if (ok) "Increasing volume, sir." else "I could not change the volume.")
+            }
+            lower.contains("volume down") || lower.contains("decrease volume") -> {
+                val ok = deviceControlHelper.setVolume(-5)
+                respond(if (ok) "Lowering volume, sir." else "I could not change the volume.")
+            }
+            lower.contains("brightness") -> {
+                val opened = deviceControlHelper.openBrightnessSettings()
+                respond(if (opened) "Opening brightness settings, sir." else "I could not open brightness settings.")
+            }
+            lower.contains("airplane mode") || lower.contains("flight mode") -> {
+                val opened = deviceControlHelper.openAirplaneModeSettings()
+                respond(if (opened) "Opening airplane mode settings, sir." else "I could not open airplane mode settings.")
+            }
+            else -> {
+                respond("I can control Wi‑Fi, Bluetooth, flashlight, volume, brightness, and airplane mode.")
+            }
         }
     }
 

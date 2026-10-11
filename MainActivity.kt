@@ -19,6 +19,7 @@ import com.stark.jarvis.databinding.ActivityMainBinding
 import com.stark.jarvis.service.JarvisAccessibilityService
 import com.stark.jarvis.util.AppLauncherHelper
 import com.stark.jarvis.util.ContactCallHelper
+import com.stark.jarvis.util.WhatsAppHelper
 import com.stark.jarvis.voice.JarvisVoiceEngine
 import kotlinx.coroutines.launch
 
@@ -28,6 +29,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var voiceEngine: JarvisVoiceEngine
     private lateinit var appLauncher: AppLauncherHelper
     private lateinit var contactCallHelper: ContactCallHelper
+    private lateinit var whatsappHelper: WhatsAppHelper
     private lateinit var geminiService: GeminiBrainService
 
     private var pulseAnimator: ObjectAnimator? = null
@@ -63,6 +65,7 @@ class MainActivity : AppCompatActivity() {
 
         appLauncher = AppLauncherHelper(this)
         contactCallHelper = ContactCallHelper(this)
+        whatsappHelper = WhatsAppHelper(this)
         geminiService = GeminiBrainService()
 
         setupVoiceEngine()
@@ -215,6 +218,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (lower.contains("whatsapp") || lower.contains("whats app")) {
+            handleWhatsApp(lower)
+            return
+        }
+
         if (lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ")) {
             val target = lower.removePrefix("open ").removePrefix("launch ").removePrefix("start ").trim()
             executeOpenApp(target)
@@ -224,7 +232,7 @@ class MainActivity : AppCompatActivity() {
         if (isOnlineMode) {
             queryOnlineGemini(command)
         } else {
-            respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, or who am I?")
+            respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, call, or who am I?")
         }
     }
 
@@ -262,6 +270,43 @@ class MainActivity : AppCompatActivity() {
                 respond("I found several contacts: $options. Please tell me which one you want to call.")
             }
         }
+    }
+
+    private fun handleWhatsApp(command: String) {
+        val lower = command.lowercase().trim()
+
+        if (lower.contains("open whatsapp") || lower.contains("open whats app")) {
+            val opened = whatsappHelper.openWhatsApp()
+            respond(if (opened) "Opening WhatsApp, sir." else "I could not open WhatsApp on this device.")
+            return
+        }
+
+        if (lower.contains("send") || lower.contains("message") || lower.contains("text")) {
+            val target = lower
+                .replace("whatsapp", "")
+                .replace("whats app", "")
+                .replace("send", "")
+                .replace("message", "")
+                .replace("text", "")
+                .trim()
+
+            if (target.isEmpty()) {
+                val opened = whatsappHelper.openWhatsApp()
+                respond(if (opened) "Opening WhatsApp so you can send a message." else "I could not open WhatsApp.")
+                return
+            }
+
+            val matches = contactCallHelper.findContactsByName(target)
+            if (matches.isNotEmpty()) {
+                val contact = matches.first()
+                val result = whatsappHelper.openWhatsAppChat(contact.phoneNumber)
+                respond(if (result) "Opening WhatsApp chat with ${contact.displayName}, sir." else "I could not open a WhatsApp chat for ${contact.displayName}.")
+                return
+            }
+        }
+
+        val opened = whatsappHelper.openWhatsApp()
+        respond(if (opened) "Opening WhatsApp, sir." else "I could not open WhatsApp on this device.")
     }
 
     private fun executeGoBack() {

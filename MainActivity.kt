@@ -18,6 +18,7 @@ import com.stark.jarvis.ai.GeminiBrainService
 import com.stark.jarvis.databinding.ActivityMainBinding
 import com.stark.jarvis.service.JarvisAccessibilityService
 import com.stark.jarvis.util.AppLauncherHelper
+import com.stark.jarvis.util.ContactCallHelper
 import com.stark.jarvis.voice.JarvisVoiceEngine
 import kotlinx.coroutines.launch
 
@@ -26,6 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var binding: ActivityMainBinding
     private lateinit var voiceEngine: JarvisVoiceEngine
     private lateinit var appLauncher: AppLauncherHelper
+    private lateinit var contactCallHelper: ContactCallHelper
     private lateinit var geminiService: GeminiBrainService
 
     private var pulseAnimator: ObjectAnimator? = null
@@ -43,12 +45,24 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private val requestContactsPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        if (granted) {
+            binding.tvStatusBanner.text = "CONTACT ACCESS AUTHORIZED"
+        } else {
+            binding.tvStatusBanner.text = "CONTACT ACCESS DENIED"
+            Toast.makeText(this, "Contact access is required to find a contact to call.", Toast.LENGTH_LONG).show()
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
         appLauncher = AppLauncherHelper(this)
+        contactCallHelper = ContactCallHelper(this)
         geminiService = GeminiBrainService()
 
         setupVoiceEngine()
@@ -196,6 +210,11 @@ class MainActivity : AppCompatActivity() {
             return
         }
 
+        if (lower.contains("call ") || lower.contains("dial ") || lower.contains("phone ")) {
+            handleContactCall(lower)
+            return
+        }
+
         if (lower.startsWith("open ") || lower.startsWith("launch ") || lower.startsWith("start ")) {
             val target = lower.removePrefix("open ").removePrefix("launch ").removePrefix("start ").trim()
             executeOpenApp(target)
@@ -206,6 +225,42 @@ class MainActivity : AppCompatActivity() {
             queryOnlineGemini(command)
         } else {
             respond("Sir, that command is not recognized in offline mode. Try: open app, go home, go back, or who am I?")
+        }
+    }
+
+    private fun handleContactCall(command: String) {
+        val lower = command.lowercase().trim()
+
+        if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_CONTACTS) != PackageManager.PERMISSION_GRANTED) {
+            requestContactsPermissionLauncher.launch(Manifest.permission.READ_CONTACTS)
+            respond("I need contact access to search for the person you want to call.")
+            return
+        }
+
+        val targetName = when {
+            lower.contains("call ") -> lower.removePrefix("call ").trim()
+            lower.contains("dial ") -> lower.removePrefix("dial ").trim()
+            lower.contains("phone ") -> lower.removePrefix("phone ").trim()
+            else -> lower
+        }
+
+        val aliasName = contactCallHelper.resolveContactAlias(targetName)
+        val matches = contactCallHelper.findContactsByName(aliasName)
+
+        when {
+            matches.isEmpty() -> {
+                respond("I could not find a contact named $aliasName. Please say the full name clearly or open your contacts.")
+            }
+            matches.size == 1 -> {
+                val contact = matches.first()
+                val dialIntent = contactCallHelper.buildDialIntent(contact.phoneNumber)
+                startActivity(dialIntent)
+                respond("Calling ${contact.displayName}, sir. Please confirm in the dialer before placing the call.")
+            }
+            else -> {
+                val options = matches.take(5).joinToString(", ") { it.displayName }
+                respond("I found several contacts: $options. Please tell me which one you want to call.")
+            }
         }
     }
 

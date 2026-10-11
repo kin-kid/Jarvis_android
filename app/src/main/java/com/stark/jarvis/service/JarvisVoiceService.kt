@@ -21,6 +21,7 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
         private const val TAG = "JarvisVoiceService"
         const val ACTION_START = "com.stark.jarvis.action.START_VOICE"
         const val ACTION_STOP = "com.stark.jarvis.action.STOP_VOICE"
+        const val ACTION_COMMAND_RECOGNIZED = "com.stark.jarvis.action.COMMAND_RECOGNIZED"
         private const val CHANNEL_ID = "jarvis_voice_bg"
         private const val NOTIFICATION_ID = 101
     }
@@ -117,11 +118,11 @@ class JarvisVoiceService : Service(), TextToSpeech.OnInitListener {
                 val command = matches?.firstOrNull()?.orEmpty() ?: ""
                 if (command.isNotBlank()) {
                     Log.i(TAG, "Heard command: $command")
-                    // Route to your existing command handler here.
-                    // Example: MainActivity.handleIncomingCommand(command)
-                    // Or publish to a receiver / broadcast to the app.
+                    val commandIntent = Intent(ACTION_COMMAND_RECOGNIZED).apply {
+                        putExtra("command", command)
+                    }
+                    sendBroadcast(commandIntent)
                 }
-                // Restart listening automatically if you want a perpetual wake-word loop.
                 startListening()
             }
 
